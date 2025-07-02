@@ -5,46 +5,36 @@ from bs4 import BeautifulSoup
 
 app = FastAPI()
 
-# Omogući CORS za Flutter
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Promijeni na domen ako deployaš na prod
+    allow_origins=["*"],  # Flutter može da zove
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 @app.get("/api/oglasi")
-async def oglasi():
-    SCRAPER_API_KEY = "568f532b77acf94aa5e40033d880fd15"
-    target_url = (
-        "https://www.willhaben.at/iad/gebrauchtwagen/auto/gebrauchtwagenboerse"
-        "?PRICE_TO=15000&YEAR_MODEL_FROM=1990&YEAR_MODEL_TO=2025&DEALER=1"
-    )
-    scraperapi_url = f"http://api.scraperapi.com?api_key={SCRAPER_API_KEY}&render=true&url={target_url}"
+async def get_oglasi():
+    url = "https://api.scraperapi.com?api_key=OVDE_STAVI_TVOJ_API_KEY&url=https://www.willhaben.at/iad/gebrauchtwagen/auto/gebrauchtwagenboerse?PRICE_TO=15000&YEAR_MODEL_FROM=1990&YEAR_MODEL_TO=2025"
 
     async with httpx.AsyncClient() as client:
-        response = await client.get(scraperapi_url)
+        response = await client.get(url)
 
     soup = BeautifulSoup(response.text, "lxml")
     oglasi = []
 
-    for ad in soup.select('article[data-testid="search-result-entry"]'):
-        title_elem = ad.select_one("h2")
-        price_elem = ad.select_one('span.Text-sc-1cyh90m-0.jKxjzO')
-        link_elem = ad.select_one("a[href]")
-        desc_elem = ad.select_one("p")
+    for ad in soup.select("article[data-testid='search-result-entry']"):
+        naslov = ad.select_one("h2")
+        cijena = ad.select_one("span.Text-sc-1cyh90m-0.jKxjzO")
+        link = ad.select_one("a[href]")
+        opis = ad.select_one("p")
 
-        title = title_elem.text.strip() if title_elem else None
-        price = price_elem.text.strip() if price_elem else None
-        link = f"https://www.willhaben.at{link_elem['href']}" if link_elem else None
-        opis = desc_elem.text.strip() if desc_elem else ""
-
-        if title and price:
-            oglasi.append({
-                "naslov": title,
-                "cijena": price,
-                "link": link,
-                "opis": opis,
-            })
+        oglasi.append({
+            "naslov": naslov.text.strip() if naslov else "N/A",
+            "cijena": cijena.text.strip() if cijena else "N/A",
+            "link": f"https://www.willhaben.at{link['href']}" if link else "",
+            "opis": opis.text.strip() if opis else "",
+            "slika": None
+        })
 
     return oglasi
